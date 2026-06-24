@@ -1,6 +1,6 @@
 import { BarChart3, Database, Globe2, Plus, ShieldCheck } from 'lucide-react';
 
-export default function Header({ t, language, setLanguage, onAddLead, onOpenPipeline, onReset }) {
+export default function Header({ t, language, setLanguage, onAddLead, onOpenPipeline, onReset, onSignOut }) {
   return (
     <header className="glass-panel sticky top-0 z-30 border-x-0 border-t-0">
       <div className="mx-auto flex max-w-[1600px] flex-col gap-4 px-4 py-4 lg:flex-row lg:items-center lg:justify-between lg:px-6">
@@ -28,6 +28,7 @@ export default function Header({ t, language, setLanguage, onAddLead, onOpenPipe
           </button>
           <button className="btn-secondary" onClick={onOpenPipeline}>{t.pipelines}</button>
           <button className="btn-secondary" onClick={onReset}>{t.resetDemo}</button>
+          <button className="btn-secondary" onClick={onSignOut}>Logout</button>
           <button className="btn-primary flex items-center gap-2" onClick={onAddLead}>
             <Plus size={18} /> {t.addLead}
           </button>

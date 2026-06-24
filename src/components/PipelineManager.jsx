@@ -74,7 +74,7 @@ export default function PipelineManager({ isOpen, t, lang, pipelines, activePipe
                   <span className={`rounded-full border px-3 py-1 text-sm font-black ${stage.color || 'bg-slate-100 text-slate-700 border-slate-200'}`}>
                     {stage[lang] || stage.ro || stage.en || stage.name}
                   </span>
-                  {!['new', 'won', 'lost'].includes(stage.id) && (
+                  {!['new', 'won', 'lost'].includes(stage.slug || stage.id) && (
                     <button className="rounded-xl bg-rose-50 p-2 text-rose-600 hover:bg-rose-100" onClick={() => onDeleteStage(stage.id)}>
                       <Trash2 size={16} />
                     </button>

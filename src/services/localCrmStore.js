@@ -1,57 +1,3 @@
-import { DEFAULT_LEADS, DEFAULT_PIPELINES } from '../data/defaultData.js';
-
-const STORAGE_KEY = 'growth-iq-crm-v1';
-const SETTINGS_KEY = 'growth-iq-crm-settings-v1';
-
-export function createInitialState() {
-  return {
-    version: 1,
-    activePipelineId: DEFAULT_PIPELINES[0].id,
-    pipelines: DEFAULT_PIPELINES,
-    leads: DEFAULT_LEADS,
-    updatedAt: new Date().toISOString(),
-  };
-}
-
-export function loadCrmState() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return createInitialState();
-    const parsed = JSON.parse(raw);
-    if (!parsed?.pipelines || !parsed?.leads) return createInitialState();
-    return parsed;
-  } catch (error) {
-    console.error('Failed to load CRM state', error);
-    return createInitialState();
-  }
-}
-
-export function saveCrmState(state) {
-  const snapshot = { ...state, updatedAt: new Date().toISOString() };
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
-  return snapshot;
-}
-
-export function resetCrmState() {
-  const state = createInitialState();
-  saveCrmState(state);
-  return state;
-}
-
-export function loadSettings() {
-  try {
-    const raw = localStorage.getItem(SETTINGS_KEY);
-    return raw ? JSON.parse(raw) : { language: 'ro' };
-  } catch {
-    return { language: 'ro' };
-  }
-}
-
-export function saveSettings(settings) {
-  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-  return settings;
-}
-
 export function downloadFile(filename, content, mimeType = 'application/json') {
   const blob = new Blob([content], { type: mimeType });
   const url = URL.createObjectURL(blob);
@@ -117,19 +63,4 @@ export function exportCsv(leads, activePipeline) {
   const csv = [headers.map(escape).join(','), ...rows].join('\n');
   const date = new Date().toISOString().slice(0, 10);
   downloadFile(`growth-iq-crm-leads-${date}.csv`, csv, 'text/csv;charset=utf-8');
-}
-
-export function readJsonFile(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        resolve(JSON.parse(reader.result));
-      } catch (error) {
-        reject(error);
-      }
-    };
-    reader.onerror = reject;
-    reader.readAsText(file);
-  });
 }

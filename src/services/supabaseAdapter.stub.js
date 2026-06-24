@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient.js';
+import { DEFAULT_STAGES } from '../data/defaultData.js';
 
 function requireSupabase() {
   if (!supabase) {
@@ -27,7 +28,7 @@ function mapPipelineFromDb(pipeline) {
     organizationId: pipeline.organization_id,
     name: pipeline.name,
     description: pipeline.description || '',
-    stages: (pipeline.stages || []).map(mapStageFromDb),
+    stages: (pipeline.stages || []).map(mapStageFromDb).sort((a, b) => a.displayOrder - b.displayOrder),
     createdAt: pipeline.created_at,
     updatedAt: pipeline.updated_at,
   };
@@ -88,16 +89,154 @@ function mapLeadToDb(lead) {
 }
 
 export const supabaseAdapter = {
+  async getSession() {
+    const client = requireSupabase();
+    const { data, error } = await client.auth.getSession();
+    if (error) throw error;
+    return data.session;
+  },
+
+  async signIn(email, password) {
+    const client = requireSupabase();
+    const { data, error } = await client.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    return data.session;
+  },
+
+  async signUp(email, password) {
+    const client = requireSupabase();
+    const { data, error } = await client.auth.signUp({ email, password });
+    if (error) throw error;
+    return data.session;
+  },
+
+  async signOut() {
+    const client = requireSupabase();
+    const { error } = await client.auth.signOut();
+    if (error) throw error;
+  },
+
+  async getCurrentUser() {
+    const client = requireSupabase();
+    const { data, error } = await client.auth.getUser();
+    if (error) throw error;
+    return data.user;
+  },
+
+  async listOrganizations() {
+    const client = requireSupabase();
+    const { data, error } = await client
+      .from('organizations')
+      .select('*')
+      .order('created_at', { ascending: true });
+
+    if (error) throw error;
+    return data;
+  },
+
+  async getUserSettings() {
+    const client = requireSupabase();
+    const user = await this.getCurrentUser();
+    const { data, error } = await client
+      .from('user_settings')
+      .select('*')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (error) throw error;
+    return data;
+  },
+
+  async updateUserSettings(settings) {
+    const client = requireSupabase();
+    const user = await this.getCurrentUser();
+    const { data, error } = await client
+      .from('user_settings')
+      .upsert({
+        user_id: user.id,
+        active_organization_id: settings.activeOrganizationId || null,
+        active_pipeline_id: settings.activePipelineId || null,
+        language: settings.language || 'ro',
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
   async listPipelines() {
     const client = requireSupabase();
     const { data, error } = await client
       .from('pipelines')
       .select('*, stages(*)')
-      .order('created_at', { ascending: true })
-      .order('display_order', { referencedTable: 'stages', ascending: true });
+      .order('created_at', { ascending: true });
 
     if (error) throw error;
     return data.map(mapPipelineFromDb);
+  },
+
+  async createPipeline({ organizationId, name, description }) {
+    const client = requireSupabase();
+    const { data: pipeline, error } = await client
+      .from('pipelines')
+      .insert({
+        organization_id: organizationId,
+        name,
+        description: description || null,
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    const stages = DEFAULT_STAGES.map((stage, index) => ({
+      pipeline_id: pipeline.id,
+      slug: stage.id,
+      name_ro: stage.ro,
+      name_en: stage.en,
+      display_order: (index + 1) * 10,
+      color: stage.color,
+    }));
+
+    const { error: stagesError } = await client.from('stages').insert(stages);
+    if (stagesError) throw stagesError;
+    return pipeline;
+  },
+
+  async addStage(pipelineId, stage) {
+    const client = requireSupabase();
+    const { data: existingStages, error: listError } = await client
+      .from('stages')
+      .select('display_order')
+      .eq('pipeline_id', pipelineId)
+      .order('display_order', { ascending: false })
+      .limit(1);
+
+    if (listError) throw listError;
+
+    const displayOrder = Number(existingStages?.[0]?.display_order || 0) + 10;
+    const { data, error } = await client
+      .from('stages')
+      .insert({
+        pipeline_id: pipelineId,
+        slug: stage.slug,
+        name_ro: stage.ro,
+        name_en: stage.en || stage.ro,
+        display_order: displayOrder,
+        color: stage.color || null,
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return mapStageFromDb(data);
+  },
+
+  async deleteStage(stageId) {
+    const client = requireSupabase();
+    const { error } = await client.from('stages').delete().eq('id', stageId);
+    if (error) throw error;
   },
 
   async listLeads(pipelineId) {
@@ -129,6 +268,18 @@ export const supabaseAdapter = {
   async deleteLead(leadId) {
     const client = requireSupabase();
     const { error } = await client.from('leads').delete().eq('id', leadId);
+    if (error) throw error;
+  },
+
+  async addLeadHistory(leadId, body) {
+    const client = requireSupabase();
+    const user = await this.getCurrentUser();
+    const { error } = await client.from('lead_history').insert({
+      lead_id: leadId,
+      author_id: user.id,
+      body,
+    });
+
     if (error) throw error;
   },
 };

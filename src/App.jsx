@@ -7,10 +7,11 @@ import KanbanBoard from './components/KanbanBoard.jsx';
 import LeadModal from './components/LeadModal.jsx';
 import PipelineManager from './components/PipelineManager.jsx';
 import FollowUpsPanel from './components/FollowUpsPanel.jsx';
-import { DEFAULT_STAGES } from './data/defaultData.js';
 import { copy } from './data/i18n.js';
-import { calculateStats, buildHistoryEntry, filterLeads, getUniqueOptions } from './utils/crm.js';
-import { exportCsv, exportJson, loadCrmState, loadSettings, readJsonFile, resetCrmState, saveCrmState, saveSettings } from './services/localCrmStore.js';
+import { calculateStats, filterLeads, getUniqueOptions } from './utils/crm.js';
+import { exportCsv, exportJson } from './services/localCrmStore.js';
+import { isSupabaseConfigured } from './services/supabaseClient.js';
+import { supabaseAdapter } from './services/supabaseAdapter.stub.js';
 
 const emptyFilters = { query: '', source: '', industry: '', stageId: '' };
 
@@ -23,24 +24,47 @@ function createSlug(input) {
     .replace(/(^-|-$)/g, '') || crypto.randomUUID();
 }
 
+function LoginPanel({ error, onSubmit, onSignUp }) {
+  return (
+    <div className="app-shell flex min-h-screen items-center justify-center p-4">
+      <form onSubmit={onSubmit} className="glass-panel grid w-full max-w-md gap-4 rounded-3xl p-6">
+        <div>
+          <p className="text-sm font-black uppercase tracking-wide text-blue-600">Growth IQ CRM</p>
+          <h1 className="mt-1 text-2xl font-black text-slate-950">Login Supabase</h1>
+          <p className="mt-2 text-sm font-semibold text-slate-500">Autentifica-te cu userul creat in Supabase ca sa incarci datele live.</p>
+        </div>
+        {error && <div className="rounded-2xl border border-rose-200 bg-rose-50 p-3 text-sm font-bold text-rose-700">{error}</div>}
+        <label>
+          <span className="label">Email</span>
+          <input className="input" name="email" type="email" autoComplete="email" required />
+        </label>
+        <label>
+          <span className="label">Parola</span>
+          <input className="input" name="password" type="password" autoComplete="current-password" required />
+        </label>
+        <div className="flex flex-wrap gap-2">
+          <button className="btn-primary" type="submit">Intra in CRM</button>
+          <button className="btn-secondary" type="button" onClick={onSignUp}>Creeaza user</button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 export default function App() {
-  const [crmState, setCrmState] = useState(loadCrmState);
-  const [settings, setSettings] = useState(loadSettings);
+  const [session, setSession] = useState(null);
+  const [organizations, setOrganizations] = useState([]);
+  const [crmState, setCrmState] = useState({ pipelines: [], leads: [], activePipelineId: '' });
+  const [settings, setSettings] = useState({ language: 'ro' });
   const [filters, setFilters] = useState(emptyFilters);
   const [modalLead, setModalLead] = useState(null);
   const [isLeadModalOpen, setIsLeadModalOpen] = useState(false);
   const [isPipelineManagerOpen, setIsPipelineManagerOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
 
   const lang = settings.language || 'ro';
   const t = copy[lang];
-
-  useEffect(() => {
-    saveCrmState(crmState);
-  }, [crmState]);
-
-  useEffect(() => {
-    saveSettings(settings);
-  }, [settings]);
 
   const activePipeline = useMemo(() => {
     return crmState.pipelines.find((pipeline) => pipeline.id === crmState.activePipelineId) || crmState.pipelines[0];
@@ -55,20 +79,119 @@ export default function App() {
   const sources = useMemo(() => getUniqueOptions(pipelineLeads, 'source'), [pipelineLeads]);
   const industries = useMemo(() => getUniqueOptions(pipelineLeads, 'industry'), [pipelineLeads]);
 
-  function updateState(mutator) {
-    setCrmState((previous) => {
-      const next = mutator(previous);
-      return { ...next, updatedAt: new Date().toISOString() };
+  async function loadSupabaseData(preferredPipelineId) {
+    setIsLoading(true);
+    setError('');
+    try {
+      const [orgs, userSettings, pipelines, leads] = await Promise.all([
+        supabaseAdapter.listOrganizations(),
+        supabaseAdapter.getUserSettings(),
+        supabaseAdapter.listPipelines(),
+        supabaseAdapter.listLeads(),
+      ]);
+
+      const activePipelineId = preferredPipelineId
+        || userSettings?.active_pipeline_id
+        || pipelines[0]?.id
+        || '';
+
+      setOrganizations(orgs);
+      setSettings({ language: userSettings?.language || 'ro' });
+      setCrmState({ pipelines, leads, activePipelineId });
+
+      if (activePipelineId) {
+        await supabaseAdapter.updateUserSettings({
+          activeOrganizationId: userSettings?.active_organization_id || orgs[0]?.id,
+          activePipelineId,
+          language: userSettings?.language || 'ro',
+        });
+      }
+    } catch (loadError) {
+      console.error(loadError);
+      setError(loadError.message || 'Nu am putut incarca datele din Supabase.');
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    async function boot() {
+      if (!isSupabaseConfigured) {
+        setError('Lipsesc VITE_SUPABASE_URL sau VITE_SUPABASE_ANON_KEY in .env.');
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const initialSession = await supabaseAdapter.getSession();
+        setSession(initialSession);
+        if (initialSession) await loadSupabaseData();
+      } catch (bootError) {
+        console.error(bootError);
+        setError(bootError.message || 'Nu am putut porni conexiunea Supabase.');
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    boot();
+  }, []);
+
+  async function handleLogin(event) {
+    event.preventDefault();
+    setError('');
+    const formData = new FormData(event.currentTarget);
+    try {
+      const nextSession = await supabaseAdapter.signIn(formData.get('email'), formData.get('password'));
+      setSession(nextSession);
+      await loadSupabaseData();
+    } catch (loginError) {
+      setError(loginError.message || 'Login esuat.');
+    }
+  }
+
+  async function handleSignUp() {
+    const email = document.querySelector('input[name="email"]')?.value;
+    const password = document.querySelector('input[name="password"]')?.value;
+    if (!email || !password) {
+      setError('Completeaza email si parola inainte sa creezi userul.');
+      return;
+    }
+
+    try {
+      const nextSession = await supabaseAdapter.signUp(email, password);
+      setSession(nextSession);
+      if (nextSession) await loadSupabaseData();
+      else setError('User creat. Verifica emailul daca ai confirmarea activata in Supabase, apoi intra in CRM.');
+    } catch (signUpError) {
+      setError(signUpError.message || 'Nu am putut crea userul.');
+    }
+  }
+
+  async function handleSignOut() {
+    await supabaseAdapter.signOut();
+    setSession(null);
+    setOrganizations([]);
+    setCrmState({ pipelines: [], leads: [], activePipelineId: '' });
+  }
+
+  async function setLanguage(nextLanguage) {
+    setSettings((previous) => ({ ...previous, language: nextLanguage }));
+    await supabaseAdapter.updateUserSettings({
+      activeOrganizationId: organizations[0]?.id,
+      activePipelineId: activePipeline?.id,
+      language: nextLanguage,
     });
   }
 
-  function setLanguage(nextLanguage) {
-    setSettings((previous) => ({ ...previous, language: nextLanguage }));
-  }
-
-  function setActivePipelineId(pipelineId) {
+  async function setActivePipelineId(pipelineId) {
     setFilters(emptyFilters);
     setCrmState((previous) => ({ ...previous, activePipelineId: pipelineId }));
+    await supabaseAdapter.updateUserSettings({
+      activeOrganizationId: organizations[0]?.id,
+      activePipelineId: pipelineId,
+      language: lang,
+    });
   }
 
   function openNewLeadModal() {
@@ -86,133 +209,107 @@ export default function App() {
     setIsLeadModalOpen(false);
   }
 
-  function saveLead(payload) {
-    updateState((previous) => {
-      const isEdit = Boolean(payload.id);
-      const stage = activePipeline.stages.find((item) => item.id === payload.stageId);
-      const stageLabel = stage?.ro || stage?.en || payload.stageId;
+  async function saveLead(payload) {
+    if (!activePipeline) return;
+    const isEdit = Boolean(payload.id);
+    const stage = activePipeline.stages.find((item) => item.id === payload.stageId);
+    const stageLabel = stage?.ro || stage?.en || payload.stageId;
 
-      if (isEdit) {
-        return {
-          ...previous,
-          leads: previous.leads.map((lead) => lead.id === payload.id
-            ? {
-                ...lead,
-                ...payload,
-                updatedAt: new Date().toISOString(),
-                history: [
-                  ...(lead.history || []),
-                  buildHistoryEntry(`Actualizat. Status: ${stageLabel}`),
-                ],
-              }
-            : lead),
-        };
-      }
-
-      const newLead = {
+    try {
+      const savedLead = await supabaseAdapter.upsertLead({
         ...payload,
-        id: crypto.randomUUID(),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        history: [buildHistoryEntry('Lead creat.')],
-      };
-      return { ...previous, leads: [newLead, ...previous.leads] };
-    });
-    closeLeadModal();
+        pipelineId: activePipeline.id,
+      });
+      await supabaseAdapter.addLeadHistory(savedLead.id, isEdit ? `Actualizat. Status: ${stageLabel}` : 'Lead creat.');
+      await loadSupabaseData(activePipeline.id);
+      closeLeadModal();
+    } catch (saveError) {
+      console.error(saveError);
+      alert(saveError.message || 'Nu am putut salva lead-ul in Supabase.');
+    }
   }
 
-  function deleteLead(leadId) {
+  async function deleteLead(leadId) {
     if (!window.confirm(t.confirmDeleteLead)) return;
-    updateState((previous) => ({
-      ...previous,
-      leads: previous.leads.filter((lead) => lead.id !== leadId),
-    }));
-    closeLeadModal();
+    try {
+      await supabaseAdapter.deleteLead(leadId);
+      await loadSupabaseData(activePipeline?.id);
+      closeLeadModal();
+    } catch (deleteError) {
+      alert(deleteError.message || 'Nu am putut sterge lead-ul.');
+    }
   }
 
-  function changeLeadStage(leadId, stageId) {
-    updateState((previous) => ({
-      ...previous,
-      leads: previous.leads.map((lead) => {
-        if (lead.id !== leadId) return lead;
-        const stage = activePipeline.stages.find((item) => item.id === stageId);
-        const label = stage?.ro || stage?.en || stageId;
-        return {
-          ...lead,
-          stageId,
-          updatedAt: new Date().toISOString(),
-          history: [...(lead.history || []), buildHistoryEntry(`Mutat în ${label}.`)],
-        };
-      }),
-    }));
+  async function changeLeadStage(leadId, stageId) {
+    const lead = crmState.leads.find((item) => item.id === leadId);
+    if (!lead) return;
+    try {
+      await supabaseAdapter.upsertLead({ ...lead, stageId });
+      await supabaseAdapter.addLeadHistory(leadId, 'Mutat in alt stagiu.');
+      await loadSupabaseData(activePipeline?.id);
+    } catch (stageError) {
+      alert(stageError.message || 'Nu am putut muta lead-ul.');
+    }
   }
 
-  function createPipeline({ name, description }) {
-    const id = `${createSlug(name)}-${Date.now().toString(36)}`;
-    const pipeline = {
-      id,
-      name,
-      description,
-      stages: DEFAULT_STAGES.map((stage) => ({ ...stage })),
-      createdAt: new Date().toISOString(),
-      roleAccess: {
-        owner: ['read', 'create', 'update', 'delete', 'export'],
-        partner: ['read', 'create', 'update'],
-        client: ['read', 'comment'],
-        viewer: ['read'],
-      },
-    };
-    updateState((previous) => ({
-      ...previous,
-      pipelines: [...previous.pipelines, pipeline],
-      activePipelineId: id,
-    }));
-  }
-
-  function addStage(stage) {
-    const id = `${createSlug(stage.ro || stage.en || stage.name)}-${Date.now().toString(36)}`;
-    updateState((previous) => ({
-      ...previous,
-      pipelines: previous.pipelines.map((pipeline) => pipeline.id === activePipeline.id
-        ? { ...pipeline, stages: [...pipeline.stages, { id, ...stage }] }
-        : pipeline),
-    }));
-  }
-
-  function deleteStage(stageId) {
-    const hasLeads = pipelineLeads.some((lead) => lead.stageId === stageId);
-    if (hasLeads) {
-      alert(lang === 'ro' ? 'Mută mai întâi lead-urile din acest stagiu.' : 'Move the leads from this stage first.');
+  async function createPipeline({ name, description }) {
+    const organizationId = organizations[0]?.id;
+    if (!organizationId) {
+      alert('Nu exista organizatie in Supabase. Ruleaza supabase/seed.sql pentru userul tau.');
       return;
     }
-    updateState((previous) => ({
-      ...previous,
-      pipelines: previous.pipelines.map((pipeline) => pipeline.id === activePipeline.id
-        ? { ...pipeline, stages: pipeline.stages.filter((stage) => stage.id !== stageId) }
-        : pipeline),
-    }));
-  }
 
-  async function importJsonFile(event) {
-    const file = event.target.files?.[0];
-    if (!file) return;
     try {
-      const imported = await readJsonFile(file);
-      if (!imported?.pipelines || !imported?.leads) throw new Error('Invalid CRM backup');
-      setCrmState(imported);
-      setFilters(emptyFilters);
-    } catch (error) {
-      alert(lang === 'ro' ? 'Fișierul JSON nu pare să fie un backup valid.' : 'The JSON file does not look like a valid backup.');
-      console.error(error);
-    } finally {
-      event.target.value = '';
+      const pipeline = await supabaseAdapter.createPipeline({ organizationId, name, description });
+      await loadSupabaseData(pipeline.id);
+    } catch (pipelineError) {
+      alert(pipelineError.message || 'Nu am putut crea pipeline-ul.');
     }
   }
 
-  function handleReset() {
-    if (!window.confirm(t.confirmReset)) return;
-    setCrmState(resetCrmState());
-    setFilters(emptyFilters);
+  async function addStage(stage) {
+    if (!activePipeline) return;
+    try {
+      await supabaseAdapter.addStage(activePipeline.id, {
+        ...stage,
+        slug: `${createSlug(stage.ro || stage.en || stage.name)}-${Date.now().toString(36)}`,
+      });
+      await loadSupabaseData(activePipeline.id);
+    } catch (stageError) {
+      alert(stageError.message || 'Nu am putut adauga stagiul.');
+    }
+  }
+
+  async function deleteStage(stageId) {
+    const hasLeads = pipelineLeads.some((lead) => lead.stageId === stageId);
+    if (hasLeads) {
+      alert(lang === 'ro' ? 'Muta mai intai lead-urile din acest stagiu.' : 'Move the leads from this stage first.');
+      return;
+    }
+
+    try {
+      await supabaseAdapter.deleteStage(stageId);
+      await loadSupabaseData(activePipeline?.id);
+    } catch (stageError) {
+      alert(stageError.message || 'Nu am putut sterge stagiul.');
+    }
+  }
+
+  function importJsonFile(event) {
+    event.target.value = '';
+    alert('Importul JSON local este dezactivat. Aplicatia foloseste doar Supabase.');
+  }
+
+  async function handleReload() {
+    await loadSupabaseData(activePipeline?.id);
+  }
+
+  if (isLoading) {
+    return <div className="app-shell flex min-h-screen items-center justify-center text-sm font-black text-slate-500">Se incarca Supabase...</div>;
+  }
+
+  if (!session) {
+    return <LoginPanel error={error} onSubmit={handleLogin} onSignUp={handleSignUp} />;
   }
 
   return (
@@ -223,8 +320,15 @@ export default function App() {
         setLanguage={setLanguage}
         onAddLead={openNewLeadModal}
         onOpenPipeline={() => setIsPipelineManagerOpen(true)}
-        onReset={handleReset}
+        onReset={handleReload}
+        onSignOut={handleSignOut}
       />
+
+      {error && (
+        <div className="mx-auto mt-4 max-w-[1600px] px-4 lg:px-6">
+          <div className="rounded-2xl border border-rose-200 bg-rose-50 p-3 text-sm font-bold text-rose-700">{error}</div>
+        </div>
+      )}
 
       <main className="mx-auto grid max-w-[1600px] gap-5 px-4 py-5 lg:px-6 xl:grid-cols-[1fr_340px]">
         <div className="grid min-w-0 gap-5">
@@ -249,33 +353,41 @@ export default function App() {
             onImportJson={importJsonFile}
           />
 
-          {filteredLeads.length || pipelineLeads.length === 0 ? (
-            <KanbanBoard
-              t={t}
-              lang={lang}
-              stages={activePipeline?.stages || []}
-              leads={filteredLeads}
-              onOpenLead={openEditLeadModal}
-              onStageChange={changeLeadStage}
-            />
+          {activePipeline ? (
+            filteredLeads.length || pipelineLeads.length === 0 ? (
+              <KanbanBoard
+                t={t}
+                lang={lang}
+                stages={activePipeline?.stages || []}
+                leads={filteredLeads}
+                onOpenLead={openEditLeadModal}
+                onStageChange={changeLeadStage}
+              />
+            ) : (
+              <div className="glass-panel rounded-3xl p-10 text-center text-sm font-bold text-slate-400">{t.noResults}</div>
+            )
           ) : (
-            <div className="glass-panel rounded-3xl p-10 text-center text-sm font-bold text-slate-400">{t.noResults}</div>
+            <div className="glass-panel rounded-3xl p-10 text-center text-sm font-bold text-slate-500">
+              Nu exista pipeline-uri in Supabase. Ruleaza `supabase/seed.sql` pentru userul tau.
+            </div>
           )}
         </div>
 
         <FollowUpsPanel t={t} lang={lang} leads={pipelineLeads} onOpenLead={openEditLeadModal} />
       </main>
 
-      <LeadModal
-        isOpen={isLeadModalOpen}
-        lead={modalLead}
-        activePipeline={activePipeline}
-        t={t}
-        lang={lang}
-        onClose={closeLeadModal}
-        onSave={saveLead}
-        onDelete={deleteLead}
-      />
+      {activePipeline && (
+        <LeadModal
+          isOpen={isLeadModalOpen}
+          lead={modalLead}
+          activePipeline={activePipeline}
+          t={t}
+          lang={lang}
+          onClose={closeLeadModal}
+          onSave={saveLead}
+          onDelete={deleteLead}
+        />
+      )}
 
       <PipelineManager
         isOpen={isPipelineManagerOpen}
