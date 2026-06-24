@@ -6,7 +6,7 @@
 
 do $$
 declare
-  owner_user_id uuid := 'PASTE_AUTH_USER_UUID_HERE';
+  owner_user_id uuid := 'e9f4bcbe-dc57-4bd9-979c-cedc71d6a960';
   org_id uuid;
   interior_pipeline_id uuid;
   agency_pipeline_id uuid;
