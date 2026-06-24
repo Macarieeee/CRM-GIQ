@@ -36,9 +36,30 @@ VITE_USE_SUPABASE=false
 
 ## 3. Seed initial
 
-Dupa ce creezi primul user in `Authentication` > `Users`, copiaza UUID-ul lui si ruleaza query-ul comentat de la finalul fisierului `supabase/schema.sql`. Acel query creeaza organizatia initiala, membrul `owner`, pipeline-ul si stagiile default.
+Dupa ce creezi primul user in `Authentication` > `Users`, copiaza UUID-ul lui si ruleaza `supabase/seed.sql`.
 
-## 4. Deploy
+In `seed.sql`, inlocuieste:
+
+```sql
+owner_user_id uuid := 'PASTE_AUTH_USER_UUID_HERE';
+```
+
+cu UUID-ul tau real. Query-ul creeaza organizatia initiala, userul owner, doua pipeline-uri, stagiile default si un lead demo.
+
+## 4. GitHub Secrets pentru deploy
+
+Nu urca `.env` in GitHub. Pentru deploy din GitHub Actions, adauga in repo:
+
+`Settings` > `Secrets and variables` > `Actions` > `Secrets`
+
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+
+Optional, in tabul `Variables`, adauga:
+
+- `VITE_USE_SUPABASE=false`
+
+## 5. Deploy
 
 `npm run deploy` ruleaza automat `npm run build` inainte de publicare prin scriptul `predeploy`.
 
