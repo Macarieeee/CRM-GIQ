@@ -5,11 +5,12 @@
   "homepage": "https://macarieeee.github.io/CRM-GIQ/",
   "type": "module",
   "scripts": {
-  "dev": "vite",
-  "build": "vite build",
-  "preview": "vite preview",
-  "deploy": "npm run build && gh-pages -d dist -r https://github.com/Macarieeee/CRM-GIQ.git"
-},
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "predeploy": "gh-pages-clean && npm run build",
+    "deploy": "gh-pages -r https://github.com/Macarieeee/CRM-GIQ.git -d dist"
+  },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.2",
     "@tailwindcss/vite": "latest",
