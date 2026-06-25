@@ -1,7 +1,7 @@
 export const copy = {
   ro: {
     appName: 'Growth IQ CRM',
-    subtitle: 'CRM local pentru lead-uri, pipeline-uri și follow-up-uri.',
+    subtitle: 'CRM Supabase pentru lead-uri, pipeline-uri si follow-up-uri.',
     localBadge: 'Supabase live',
     addLead: 'Adaugă lead',
     newLead: 'Lead nou',
@@ -24,7 +24,7 @@ export const copy = {
     exportJson: 'Export JSON',
     importJson: 'Import JSON',
     exportCsv: 'Export CSV',
-    importHint: 'Importul JSON înlocuiește datele locale curente.',
+    importHint: 'Importul JSON salveaza lead-urile in Supabase, in pipeline-ul activ.',
     totalLeads: 'Total lead-uri',
     newLeads: 'Lead-uri noi',
     calls: 'Call-uri programate',
@@ -80,7 +80,7 @@ export const copy = {
   },
   en: {
     appName: 'Growth IQ CRM',
-    subtitle: 'Local CRM for leads, pipelines, notes, and follow-ups.',
+    subtitle: 'Supabase CRM for leads, pipelines, notes, and follow-ups.',
     localBadge: 'Supabase live',
     addLead: 'Add lead',
     newLead: 'New lead',
@@ -103,7 +103,7 @@ export const copy = {
     exportJson: 'Export JSON',
     importJson: 'Import JSON',
     exportCsv: 'Export CSV',
-    importHint: 'JSON import replaces your current local data.',
+    importHint: 'JSON import saves leads to Supabase in the active pipeline.',
     totalLeads: 'Total leads',
     newLeads: 'New leads',
     calls: 'Scheduled calls',

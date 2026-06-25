@@ -64,7 +64,7 @@ function mapLeadFromDb(lead) {
   };
 }
 
-function mapLeadToDb(lead) {
+function mapLeadToDb(lead, userId) {
   return {
     id: lead.id || undefined,
     pipeline_id: lead.pipelineId,
@@ -85,6 +85,7 @@ function mapLeadToDb(lead) {
     lead_quality_comment: lead.leadQualityComment || null,
     next_follow_up: lead.nextFollowUp || null,
     notes: lead.notes || null,
+    created_by: lead.createdBy || userId || null,
   };
 }
 
@@ -255,14 +256,27 @@ export const supabaseAdapter = {
 
   async upsertLead(lead) {
     const client = requireSupabase();
+    const user = await this.getCurrentUser();
     const { data, error } = await client
       .from('leads')
-      .upsert(mapLeadToDb(lead))
+      .upsert(mapLeadToDb(lead, user.id))
       .select('*, lead_history(*)')
       .single();
 
     if (error) throw error;
     return mapLeadFromDb(data);
+  },
+
+  async importLeads(leads) {
+    const savedLeads = [];
+
+    for (const lead of leads) {
+      const savedLead = await this.upsertLead(lead);
+      await this.addLeadHistory(savedLead.id, 'Lead importat din JSON in Supabase.');
+      savedLeads.push(savedLead);
+    }
+
+    return savedLeads;
   },
 
   async deleteLead(leadId) {

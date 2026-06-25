@@ -1,0 +1,102 @@
+{
+  "pipelines": [
+    {
+      "id": "interior-design",
+      "name": "Design Interior - Clienta",
+      "description": "Pipeline pentru lead-uri de design interior.",
+      "createdAt": "2026-06-25T09:00:00.000Z",
+      "stages": [
+        {
+          "id": "new",
+          "ro": "Nou",
+          "en": "New",
+          "color": "bg-blue-100 text-blue-700 border-blue-200"
+        },
+        {
+          "id": "to-contact",
+          "ro": "De contactat",
+          "en": "To contact",
+          "color": "bg-sky-100 text-sky-700 border-sky-200"
+        },
+        {
+          "id": "contacted",
+          "ro": "Contactat",
+          "en": "Contacted",
+          "color": "bg-indigo-100 text-indigo-700 border-indigo-200"
+        },
+        {
+          "id": "interested",
+          "ro": "Interesat",
+          "en": "Interested",
+          "color": "bg-emerald-100 text-emerald-700 border-emerald-200"
+        },
+        {
+          "id": "call-scheduled",
+          "ro": "Call programat",
+          "en": "Call scheduled",
+          "color": "bg-purple-100 text-purple-700 border-purple-200"
+        },
+        {
+          "id": "proposal-sent",
+          "ro": "Propunere trimisa",
+          "en": "Proposal sent",
+          "color": "bg-amber-100 text-amber-700 border-amber-200"
+        },
+        {
+          "id": "follow-up",
+          "ro": "Follow-up",
+          "en": "Follow-up",
+          "color": "bg-orange-100 text-orange-700 border-orange-200"
+        },
+        {
+          "id": "won",
+          "ro": "Client castigat",
+          "en": "Won client",
+          "color": "bg-green-100 text-green-700 border-green-200"
+        },
+        {
+          "id": "lost",
+          "ro": "Pierdut",
+          "en": "Lost",
+          "color": "bg-rose-100 text-rose-700 border-rose-200"
+        }
+      ],
+      "roleAccess": {
+        "owner": ["read", "create", "update", "delete", "export"],
+        "partner": ["read", "create", "update"],
+        "client": ["read", "comment"],
+        "viewer": ["read"]
+      }
+    }
+  ],
+  "leads": [
+    {
+      "id": "test-lead-apartament-herastrau-20260625",
+      "pipelineId": "interior-design",
+      "companyName": "Test Lead - Apartament Herastrau",
+      "contactName": "Ioana Marinescu",
+      "phone": "+40 721 234 567",
+      "email": "ioana.marinescu.test@example.com",
+      "website": "https://example.com/apartament-herastrau",
+      "instagram": "@ioana.home.test",
+      "facebook": "https://facebook.com/ioana.home.test",
+      "industry": "Design interior rezidential",
+      "cityCountry": "Bucuresti, Romania",
+      "source": "Website",
+      "stageId": "new",
+      "potentialValue": 8500,
+      "leadQuality": "9",
+      "leadQualityComment": "Lead de test cu buget bun, locatie premium si nevoie clara de amenajare completa.",
+      "createdAt": "2026-06-25T09:15:00.000Z",
+      "nextFollowUp": "2026-06-26",
+      "notes": "Clienta vrea amenajare pentru apartament cu 3 camere in Herastrau. Buget estimat 8500 EUR. De sunat pentru stabilirea unui call de consultanta.",
+      "history": [
+        {
+          "at": "2026-06-25T09:15:00.000Z",
+          "text": "Lead de test importat din JSON."
+        }
+      ]
+    }
+  ],
+  "activePipelineId": "interior-design"
+}

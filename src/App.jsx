@@ -14,6 +14,7 @@ import { isSupabaseConfigured } from './services/supabaseClient.js';
 import { supabaseAdapter } from './services/supabaseAdapter.stub.js';
 
 const emptyFilters = { query: '', source: '', industry: '', stageId: '' };
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function createSlug(input) {
   return input
@@ -22,6 +23,87 @@ function createSlug(input) {
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/(^-|-$)/g, '') || crypto.randomUUID();
+}
+
+function normalizeToken(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function getImportedLeads(payload) {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.leads)) return payload.leads;
+  if (payload?.lead && typeof payload.lead === 'object') return [payload.lead];
+  if (payload && typeof payload === 'object' && (payload.companyName || payload.company_name || payload.name)) return [payload];
+  return [];
+}
+
+function findImportedPipeline(payload, lead) {
+  const pipelines = Array.isArray(payload?.pipelines) ? payload.pipelines : [];
+  return pipelines.find((pipeline) => pipeline.id === lead.pipelineId) || null;
+}
+
+function resolveStageId(lead, activePipeline, importedPipeline) {
+  const importedStage = importedPipeline?.stages?.find((stage) => stage.id === lead.stageId) || null;
+  const candidates = [
+    lead.stageId,
+    lead.stageSlug,
+    lead.status,
+    lead.stage,
+    importedStage?.slug,
+    importedStage?.ro,
+    importedStage?.en,
+    importedStage?.name,
+  ].map(normalizeToken).filter(Boolean);
+
+  const matchedStage = activePipeline.stages.find((stage) => {
+    const stageTokens = [stage.id, stage.slug, stage.ro, stage.en, stage.name].map(normalizeToken);
+    return candidates.some((candidate) => stageTokens.includes(candidate));
+  });
+
+  return matchedStage?.id || activePipeline.stages[0]?.id || null;
+}
+
+function normalizeDate(value) {
+  if (!value) return '';
+  const dateText = String(value).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateText)) return dateText;
+
+  const date = new Date(dateText);
+  return Number.isNaN(date.getTime()) ? '' : date.toISOString().slice(0, 10);
+}
+
+function normalizeLeadQuality(value) {
+  const score = Number(value || 0);
+  return score >= 1 && score <= 10 ? String(score) : '';
+}
+
+function normalizeImportedLead(lead, activePipeline, importedPipeline) {
+  const companyName = String(lead.companyName || lead.company_name || lead.company || lead.name || '').trim();
+  if (!companyName) return null;
+
+  const rawId = String(lead.id || '').trim();
+  const normalized = {
+    pipelineId: activePipeline.id,
+    stageId: resolveStageId(lead, activePipeline, importedPipeline),
+    companyName,
+    contactName: lead.contactName || lead.contact_name || lead.contact || '',
+    phone: lead.phone || lead.telefon || '',
+    email: lead.email || '',
+    website: lead.website || lead.site || '',
+    instagram: lead.instagram || '',
+    facebook: lead.facebook || '',
+    industry: lead.industry || lead.niche || lead.nisa || '',
+    cityCountry: lead.cityCountry || lead.city_country || lead.location || lead.city || '',
+    source: lead.source || lead.sursa || '',
+    potentialValue: Number(lead.potentialValue ?? lead.potential_value ?? lead.value ?? lead.budget ?? 0) || 0,
+    leadQuality: normalizeLeadQuality(lead.leadQuality ?? lead.lead_quality),
+    leadQualityComment: lead.leadQualityComment || lead.lead_quality_comment || '',
+    nextFollowUp: normalizeDate(lead.nextFollowUp || lead.next_follow_up),
+    notes: lead.notes || lead.note || lead.description || '',
+  };
+
+  if (uuidPattern.test(rawId)) normalized.id = rawId;
+  return normalized;
 }
 
 function LoginPanel({ error, onSubmit, onSignUp }) {
@@ -295,9 +377,31 @@ export default function App() {
     }
   }
 
-  function importJsonFile(event) {
+  async function importJsonFile(event) {
+    const file = event.target.files?.[0];
     event.target.value = '';
-    alert('Importul JSON local este dezactivat. Aplicatia foloseste doar Supabase.');
+    if (!file || !activePipeline) return;
+
+    try {
+      const text = await file.text();
+      const payload = JSON.parse(text);
+      const importedLeads = getImportedLeads(payload);
+      const normalizedLeads = importedLeads
+        .map((lead) => normalizeImportedLead(lead, activePipeline, findImportedPipeline(payload, lead)))
+        .filter(Boolean);
+
+      if (!normalizedLeads.length) {
+        alert('JSON-ul nu contine lead-uri valide. Include un obiect lead sau o proprietate "leads".');
+        return;
+      }
+
+      await supabaseAdapter.importLeads(normalizedLeads);
+      await loadSupabaseData(activePipeline.id);
+      alert(`Import finalizat in Supabase: ${normalizedLeads.length} lead-uri.`);
+    } catch (importError) {
+      console.error(importError);
+      alert(importError.message || 'Nu am putut importa JSON-ul in Supabase.');
+    }
   }
 
   async function handleReload() {
