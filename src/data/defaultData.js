@@ -62,6 +62,12 @@ export const DEFAULT_LEADS = [
     notes: 'Lead demo. Editează sau șterge acest card după ce testezi aplicația.',
     leadQuestion: 'Care este obiectivul principal al amenajarii?',
     leadAnswer: 'Clienta vrea un apartament premium, luminos, cu depozitare integrata.',
+    leadQa: [
+      {
+        question: 'Care este obiectivul principal al amenajarii?',
+        answer: 'Clienta vrea un apartament premium, luminos, cu depozitare integrata.',
+      },
+    ],
     history: [
       { at: new Date().toISOString(), text: 'Lead demo creat automat.' }
     ],
@@ -87,4 +93,5 @@ export const EMPTY_LEAD = {
   notes: '',
   leadQuestion: '',
   leadAnswer: '',
+  leadQa: [],
 };

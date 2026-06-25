@@ -34,7 +34,30 @@ function mapPipelineFromDb(pipeline) {
   };
 }
 
+function normalizeLeadQa(value, legacyQuestion = '', legacyAnswer = '') {
+  const source = Array.isArray(value) ? value : [];
+  const normalized = source
+    .map((item) => ({
+      question: String(item?.question || '').trim(),
+      answer: String(item?.answer || '').trim(),
+    }))
+    .filter((item) => item.question || item.answer);
+
+  if (normalized.length) return normalized;
+
+  if (legacyQuestion || legacyAnswer) {
+    return [{
+      question: legacyQuestion || '',
+      answer: legacyAnswer || '',
+    }];
+  }
+
+  return [];
+}
+
 function mapLeadFromDb(lead) {
+  const leadQa = normalizeLeadQa(lead.lead_qa, lead.lead_question, lead.lead_answer);
+
   return {
     id: lead.id,
     pipelineId: lead.pipeline_id,
@@ -57,6 +80,7 @@ function mapLeadFromDb(lead) {
     notes: lead.notes || '',
     leadQuestion: lead.lead_question || '',
     leadAnswer: lead.lead_answer || '',
+    leadQa,
     createdAt: lead.created_at,
     updatedAt: lead.updated_at,
     history: (lead.lead_history || []).map((item) => ({
@@ -87,8 +111,9 @@ function mapLeadToDb(lead, userId) {
     lead_quality_comment: lead.leadQualityComment || null,
     next_follow_up: lead.nextFollowUp || null,
     notes: lead.notes || null,
-    lead_question: lead.leadQuestion || null,
-    lead_answer: lead.leadAnswer || null,
+    lead_qa: normalizeLeadQa(lead.leadQa, lead.leadQuestion, lead.leadAnswer),
+    lead_question: lead.leadQuestion || lead.leadQa?.[0]?.question || null,
+    lead_answer: lead.leadAnswer || lead.leadQa?.[0]?.answer || null,
     created_by: lead.createdBy || userId || null,
   };
 }

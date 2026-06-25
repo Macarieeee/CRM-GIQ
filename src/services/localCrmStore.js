@@ -35,8 +35,7 @@ export function exportCsv(leads, activePipeline) {
     'Created At',
     'Next Follow-up',
     'Notes',
-    'Question',
-    'Answer',
+    'Questions and Answers',
   ];
   const escape = (value) => `"${String(value ?? '').replaceAll('"', '""')}"`;
   const rows = leads.map((lead) => {
@@ -60,8 +59,7 @@ export function exportCsv(leads, activePipeline) {
       lead.createdAt,
       lead.nextFollowUp,
       lead.notes,
-      lead.leadQuestion,
-      lead.leadAnswer,
+      JSON.stringify(lead.leadQa || []),
     ].map(escape).join(',');
   });
   const csv = [headers.map(escape).join(','), ...rows].join('\n');

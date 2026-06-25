@@ -77,11 +77,35 @@ function normalizeLeadQuality(value) {
   return score >= 1 && score <= 10 ? String(score) : '';
 }
 
+function normalizeLeadQa(value, fallbackQuestion = '', fallbackAnswer = '') {
+  const source = Array.isArray(value) ? value : [];
+  const normalized = source
+    .map((item) => ({
+      question: String(item?.question || item?.intrebare || '').trim(),
+      answer: String(item?.answer || item?.raspuns || '').trim(),
+    }))
+    .filter((item) => item.question || item.answer);
+
+  if (normalized.length) return normalized;
+
+  if (fallbackQuestion || fallbackAnswer) {
+    return [{
+      question: fallbackQuestion || '',
+      answer: fallbackAnswer || '',
+    }];
+  }
+
+  return [];
+}
+
 function normalizeImportedLead(lead, activePipeline, importedPipeline) {
   const companyName = String(lead.companyName || lead.company_name || lead.company || lead.name || '').trim();
   if (!companyName) return null;
 
   const rawId = String(lead.id || '').trim();
+  const leadQuestion = lead.leadQuestion || lead.lead_question || lead.question || lead.intrebare || '';
+  const leadAnswer = lead.leadAnswer || lead.lead_answer || lead.answer || lead.raspuns || '';
+  const leadQa = normalizeLeadQa(lead.leadQa || lead.lead_qa || lead.qa || lead.questions, leadQuestion, leadAnswer);
   const normalized = {
     pipelineId: activePipeline.id,
     stageId: resolveStageId(lead, activePipeline, importedPipeline),
@@ -100,8 +124,9 @@ function normalizeImportedLead(lead, activePipeline, importedPipeline) {
     leadQualityComment: lead.leadQualityComment || lead.lead_quality_comment || '',
     nextFollowUp: normalizeDate(lead.nextFollowUp || lead.next_follow_up),
     notes: lead.notes || lead.note || lead.description || '',
-    leadQuestion: lead.leadQuestion || lead.lead_question || lead.question || lead.intrebare || '',
-    leadAnswer: lead.leadAnswer || lead.lead_answer || lead.answer || lead.raspuns || '',
+    leadQuestion,
+    leadAnswer,
+    leadQa,
   };
 
   if (uuidPattern.test(rawId)) normalized.id = rawId;

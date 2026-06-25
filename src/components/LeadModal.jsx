@@ -1,37 +1,91 @@
-import { X } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Plus, Trash2, X } from 'lucide-react';
 import { EMPTY_LEAD } from '../data/defaultData.js';
 
 function Field({ label, children, className = '' }) {
   return <label className={className}><span className="label">{label}</span>{children}</label>;
 }
 
-function ReadOnlyBlock({ label, value, emptyLabel }) {
+function ReadOnlyQaList({ items, t }) {
   return (
     <div className="md:col-span-2 lg:col-span-3">
-      <span className="label">{label}</span>
-      <div className="min-h-16 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold leading-6 text-slate-700">
-        {value?.trim() || <span className="text-slate-400">{emptyLabel}</span>}
-      </div>
+      <span className="label">{t.leadQa}</span>
+      {items.length ? (
+        <div className="grid gap-3">
+          {items.map((item, index) => (
+            <div key={`${item.question}-${index}`} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <p className="text-xs font-black uppercase text-slate-400">{t.leadQuestion} {index + 1}</p>
+              <p className="mt-1 text-sm font-bold leading-6 text-slate-800">{item.question}</p>
+              <p className="mt-3 text-xs font-black uppercase text-slate-400">{t.leadAnswer}</p>
+              <p className="mt-1 text-sm font-semibold leading-6 text-slate-700">{item.answer || t.noLeadAnswer}</p>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="min-h-16 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold leading-6 text-slate-400">
+          {t.noLeadQa}
+        </div>
+      )}
     </div>
   );
 }
 
 export default function LeadModal({ isOpen, lead, activePipeline, t, lang, onClose, onSave, onDelete }) {
-  if (!isOpen) return null;
   const isEdit = Boolean(lead?.id);
   const initial = { ...EMPTY_LEAD, pipelineId: activePipeline.id, ...lead };
+  const initialQa = Array.isArray(initial.leadQa) && initial.leadQa.length
+    ? initial.leadQa
+    : initial.leadQuestion || initial.leadAnswer
+      ? [{ question: initial.leadQuestion || '', answer: initial.leadAnswer || '' }]
+      : [{ question: '', answer: '' }];
+  const [qaRows, setQaRows] = useState(initialQa);
+
+  useEffect(() => {
+    if (isOpen) setQaRows(initialQa);
+  }, [isOpen, lead?.id]);
+
+  if (!isOpen) return null;
 
   function handleSubmit(event) {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
     const payload = Object.fromEntries(formData.entries());
+    const questions = formData.getAll('leadQaQuestion');
+    const answers = formData.getAll('leadQaAnswer');
+    const leadQa = questions
+      .map((question, index) => ({
+        question: String(question || '').trim(),
+        answer: String(answers[index] || '').trim(),
+      }))
+      .filter((item) => item.question || item.answer);
+
+    delete payload.leadQaQuestion;
+    delete payload.leadQaAnswer;
+
     if (!payload.companyName.trim()) return;
     onSave({
       ...initial,
       ...payload,
+      leadQa: isEdit ? initial.leadQa : leadQa,
       potentialValue: Number(payload.potentialValue || 0),
       pipelineId: activePipeline.id,
     });
+  }
+
+  function updateQaRow(index, field, value) {
+    setQaRows((previous) => previous.map((item, itemIndex) => (
+      itemIndex === index ? { ...item, [field]: value } : item
+    )));
+  }
+
+  function addQaRow() {
+    setQaRows((previous) => [...previous, { question: '', answer: '' }]);
+  }
+
+  function removeQaRow(index) {
+    setQaRows((previous) => previous.length === 1
+      ? [{ question: '', answer: '' }]
+      : previous.filter((_, itemIndex) => itemIndex !== index));
   }
 
   return (
@@ -87,19 +141,32 @@ export default function LeadModal({ isOpen, lead, activePipeline, t, lang, onClo
             <textarea className="input min-h-36 resize-y" name="notes" defaultValue={initial.notes} placeholder="Scrie aici contextul, ce a zis lead-ul, următorul pas, obiecții, buget etc." />
           </Field>
           {isEdit ? (
-            <>
-              <ReadOnlyBlock label={t.leadQuestion} value={initial.leadQuestion} emptyLabel={t.noLeadQuestion} />
-              <ReadOnlyBlock label={t.leadAnswer} value={initial.leadAnswer} emptyLabel={t.noLeadAnswer} />
-            </>
+            <ReadOnlyQaList items={initialQa.filter((item) => item.question || item.answer)} t={t} />
           ) : (
-            <>
-              <Field label={t.leadQuestion} className="md:col-span-2 lg:col-span-3">
-                <textarea className="input min-h-24 resize-y" name="leadQuestion" defaultValue={initial.leadQuestion} placeholder={t.leadQuestionPlaceholder} />
-              </Field>
-              <Field label={t.leadAnswer} className="md:col-span-2 lg:col-span-3">
-                <textarea className="input min-h-28 resize-y" name="leadAnswer" defaultValue={initial.leadAnswer} placeholder={t.leadAnswerPlaceholder} />
-              </Field>
-            </>
+            <div className="md:col-span-2 lg:col-span-3">
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <span className="label">{t.leadQa}</span>
+                <button type="button" className="btn-secondary flex items-center gap-2 py-2 text-sm" onClick={addQaRow}>
+                  <Plus size={16} /> {t.addLeadQa}
+                </button>
+              </div>
+              <div className="grid gap-3">
+                {qaRows.map((item, index) => (
+                  <div key={index} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <p className="text-xs font-black uppercase text-slate-400">{t.leadQa} {index + 1}</p>
+                      <button type="button" className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-slate-500 hover:text-rose-600" onClick={() => removeQaRow(index)} title={t.removeLeadQa}>
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                    <div className="grid gap-3">
+                      <textarea className="input min-h-20 resize-y bg-white" name="leadQaQuestion" value={item.question} onChange={(event) => updateQaRow(index, 'question', event.target.value)} placeholder={t.leadQuestionPlaceholder} />
+                      <textarea className="input min-h-24 resize-y bg-white" name="leadQaAnswer" value={item.answer} onChange={(event) => updateQaRow(index, 'answer', event.target.value)} placeholder={t.leadAnswerPlaceholder} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
         </div>
 

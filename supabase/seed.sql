@@ -101,6 +101,7 @@ begin
     notes,
     lead_question,
     lead_answer,
+    lead_qa,
     created_by
   )
   values (
@@ -123,6 +124,10 @@ begin
     'Lead demo. Editeaza sau sterge acest card dupa ce testezi aplicatia.',
     'Care este obiectivul principal al amenajarii?',
     'Clienta vrea un apartament premium, luminos, cu depozitare integrata.',
+    jsonb_build_array(jsonb_build_object(
+      'question', 'Care este obiectivul principal al amenajarii?',
+      'answer', 'Clienta vrea un apartament premium, luminos, cu depozitare integrata.'
+    )),
     owner_user_id
   );
 

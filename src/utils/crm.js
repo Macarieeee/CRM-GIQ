@@ -24,6 +24,7 @@ export function filterLeads(leads, filters) {
       lead.notes,
       lead.leadQuestion,
       lead.leadAnswer,
+      ...(lead.leadQa || []).flatMap((item) => [item.question, item.answer]),
     ].join(' ').toLowerCase();
 
     const matchesQuery = !query || haystack.includes(query);
