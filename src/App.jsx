@@ -100,6 +100,8 @@ function normalizeImportedLead(lead, activePipeline, importedPipeline) {
     leadQualityComment: lead.leadQualityComment || lead.lead_quality_comment || '',
     nextFollowUp: normalizeDate(lead.nextFollowUp || lead.next_follow_up),
     notes: lead.notes || lead.note || lead.description || '',
+    leadQuestion: lead.leadQuestion || lead.lead_question || lead.question || lead.intrebare || '',
+    leadAnswer: lead.leadAnswer || lead.lead_answer || lead.answer || lead.raspuns || '',
   };
 
   if (uuidPattern.test(rawId)) normalized.id = rawId;

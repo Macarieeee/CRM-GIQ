@@ -72,6 +72,8 @@ create table public.leads (
   lead_quality_comment text,
   next_follow_up date,
   notes text,
+  lead_question text,
+  lead_answer text,
   created_by uuid references public.profiles(id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()

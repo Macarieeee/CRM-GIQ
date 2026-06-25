@@ -99,6 +99,8 @@ begin
     lead_quality_comment,
     next_follow_up,
     notes,
+    lead_question,
+    lead_answer,
     created_by
   )
   values (
@@ -119,6 +121,8 @@ begin
     'Lead demo cu buget clar si timing bun.',
     current_date + 1,
     'Lead demo. Editeaza sau sterge acest card dupa ce testezi aplicatia.',
+    'Care este obiectivul principal al amenajarii?',
+    'Clienta vrea un apartament premium, luminos, cu depozitare integrata.',
     owner_user_id
   );
 

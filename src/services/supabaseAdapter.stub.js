@@ -55,6 +55,8 @@ function mapLeadFromDb(lead) {
     leadQualityComment: lead.lead_quality_comment || '',
     nextFollowUp: lead.next_follow_up || '',
     notes: lead.notes || '',
+    leadQuestion: lead.lead_question || '',
+    leadAnswer: lead.lead_answer || '',
     createdAt: lead.created_at,
     updatedAt: lead.updated_at,
     history: (lead.lead_history || []).map((item) => ({
@@ -85,6 +87,8 @@ function mapLeadToDb(lead, userId) {
     lead_quality_comment: lead.leadQualityComment || null,
     next_follow_up: lead.nextFollowUp || null,
     notes: lead.notes || null,
+    lead_question: lead.leadQuestion || null,
+    lead_answer: lead.leadAnswer || null,
     created_by: lead.createdBy || userId || null,
   };
 }

@@ -75,6 +75,12 @@ export default function LeadModal({ isOpen, lead, activePipeline, t, lang, onClo
           <Field label={t.notes} className="md:col-span-2 lg:col-span-3">
             <textarea className="input min-h-36 resize-y" name="notes" defaultValue={initial.notes} placeholder="Scrie aici contextul, ce a zis lead-ul, următorul pas, obiecții, buget etc." />
           </Field>
+          <Field label={t.leadQuestion} className="md:col-span-2 lg:col-span-3">
+            <textarea className="input min-h-24 resize-y" name="leadQuestion" defaultValue={initial.leadQuestion} placeholder={t.leadQuestionPlaceholder} />
+          </Field>
+          <Field label={t.leadAnswer} className="md:col-span-2 lg:col-span-3">
+            <textarea className="input min-h-28 resize-y" name="leadAnswer" defaultValue={initial.leadAnswer} placeholder={t.leadAnswerPlaceholder} />
+          </Field>
         </div>
 
         <div className="mt-6 flex flex-col-reverse gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between">

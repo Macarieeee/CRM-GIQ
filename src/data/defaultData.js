@@ -60,6 +60,8 @@ export const DEFAULT_LEADS = [
     createdAt: new Date().toISOString(),
     nextFollowUp: new Date(Date.now() + 86400000).toISOString().slice(0, 10),
     notes: 'Lead demo. Editează sau șterge acest card după ce testezi aplicația.',
+    leadQuestion: 'Care este obiectivul principal al amenajarii?',
+    leadAnswer: 'Clienta vrea un apartament premium, luminos, cu depozitare integrata.',
     history: [
       { at: new Date().toISOString(), text: 'Lead demo creat automat.' }
     ],
@@ -83,4 +85,6 @@ export const EMPTY_LEAD = {
   leadQualityComment: '',
   nextFollowUp: '',
   notes: '',
+  leadQuestion: '',
+  leadAnswer: '',
 };
